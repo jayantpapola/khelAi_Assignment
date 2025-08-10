@@ -177,11 +177,11 @@ function createWindow() {
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
   })
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  mainWindow.webContents.openDevTools()
+  // mainWindow.webContents.setWindowOpenHandler((details) => {
+  //   shell.openExternal(details.url)
+  //   return { action: 'deny' }
+  // })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])

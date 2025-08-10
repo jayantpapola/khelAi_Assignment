@@ -20,7 +20,8 @@ export default function Pairing() {
   useEffect(() => {
     const connectForMode = () => {
       if (chat_mode === 'Internet') {
-        let s = socketHelper.connectSocket({ host: 'http://localhost', port: 4000 })
+        let s = socketHelper.connectSocket({ host: 'https://socket-server-32yv.onrender.com' })
+        // let s = socketHelper.connectSocket({ host: 'http://localhost', port: 4000 })
         s.on('connect', () => {
           s.emit('register', { mobile: id })
           registerSocketListeners(s)
@@ -180,6 +181,12 @@ export default function Pairing() {
     s.emit('reject_request', { from: id, to: incomingRequest.from })
     setIncomingRequest(null)
   }
+
+  useEffect(() => {
+    if (!id) {
+      navigate('/mobile')
+    }
+  }, [])
 
   return (
     <div className="flex flex-col items-center">

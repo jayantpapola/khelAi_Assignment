@@ -3,7 +3,7 @@ import { io } from 'socket.io-client'
 
 let socket = null
 
-export function connectSocket({ host = 'http://localhost', port = 5000, opts = {} } = {}) {
+export function connectSocket({ host = 'http://localhost', port = null, opts = {} } = {}) {
   if (socket && socket.connected) {
     try {
       socket.disconnect()
@@ -12,7 +12,7 @@ export function connectSocket({ host = 'http://localhost', port = 5000, opts = {
     }
     socket = null
   }
-  const url = `${host}:${port}`
+  const url = port ? `${host}:${port}` : host
   socket = io(url, { transports: ['websocket'], autoConnect: true, ...opts })
   // add small reconnect logging
   socket.on('connect', () => console.log('socket connected to', url, 'id', socket.id))

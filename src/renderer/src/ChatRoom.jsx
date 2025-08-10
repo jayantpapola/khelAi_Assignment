@@ -12,57 +12,66 @@ const ChatRoom = () => {
   const [incoming, setIncoming] = useState(null) // store incoming request details
   const messagesEndRef = useRef(null)
 
-useEffect(() => {
-  let s = socketHelper.getSocket()
-
-  if (!s || s.disconnected) {
-    const lan = localStorage.getItem('lan_server')
-    if (lan) {
-      const host = JSON.parse(lan)
-      s = socketHelper.connectSocket({ host: `http://${host.ip}`, port: host.socketPort })
-    } else {
-      s = socketHelper.connectSocket({ host: 'http://localhost', port: 5000 })
+  useEffect(() => {
+    if (!mobile) {
+      navigate('/mobile')
+      return
     }
-  }
-
-  s.on('connect', () => {
-    s.emit('register', { mobile })
-  })
-
-  const messageHandler = (msg) => {
-    setMessages((prev) => [...prev, { text: msg, fromMe: false }])
-  }
-
-  const incomingHandler = (data) => {
-    setIncoming(data)
-  }
-
-  // Listener for when requester gets accepted (useful if this client ever sends requests)
-  const acceptedHandler = (data) => {
-    // If this client was the requester, server will send requested_accepted_<thisMobile>
-    localStorage.setItem('paired_with', data.from)
-    // if already in chat room, just update UI, else navigate
-    if (!location.pathname.includes('/chatroom')) {
-      navigate('/chatroom')
+    if (!isPaired) {
+      navigate('/pairing')
+      return
     }
-  }
 
-  const rejectedHandler = (data) => {
-    alert('Request Declined!!')
-  }
+    let s = socketHelper.getSocket()
 
-  s.on(`message_${mobile}`, messageHandler)
-  s.on(`incoming_request_${mobile}`, incomingHandler)
-  s.on(`requested_accepted_${mobile}`, acceptedHandler)
-  s.on(`requested_rejected_${mobile}`, rejectedHandler)
+    if (!s || s.disconnected) {
+      const lan = localStorage.getItem('lan_server')
+      if (lan) {
+        const host = JSON.parse(lan)
+        s = socketHelper.connectSocket({ host: `http://${host.ip}`, port: host.socketPort })
+      } else {
+        s = socketHelper.connectSocket({ host: 'http://localhost', port: 5000 })
+      }
+    }
 
-  return () => {
-    s.off(`message_${mobile}`, messageHandler)
-    s.off(`incoming_request_${mobile}`, incomingHandler)
-    s.off(`requested_accepted_${mobile}`, acceptedHandler)
-    s.off(`requested_rejected_${mobile}`, rejectedHandler)
-  }
-}, [mobile])
+    s.on('connect', () => {
+      s.emit('register', { mobile })
+    })
+
+    const messageHandler = (msg) => {
+      setMessages((prev) => [...prev, { text: msg, fromMe: false }])
+    }
+
+    const incomingHandler = (data) => {
+      setIncoming(data)
+    }
+
+    // Listener for when requester gets accepted (useful if this client ever sends requests)
+    const acceptedHandler = (data) => {
+      // If this client was the requester, server will send requested_accepted_<thisMobile>
+      localStorage.setItem('paired_with', data.from)
+      // if already in chat room, just update UI, else navigate
+      if (!location.pathname.includes('/')) {
+        navigate('/')
+      }
+    }
+
+    const rejectedHandler = (data) => {
+      alert('Request Declined!!')
+    }
+
+    s.on(`message_${mobile}`, messageHandler)
+    s.on(`incoming_request_${mobile}`, incomingHandler)
+    s.on(`requested_accepted_${mobile}`, acceptedHandler)
+    s.on(`requested_rejected_${mobile}`, rejectedHandler)
+
+    return () => {
+      s.off(`message_${mobile}`, messageHandler)
+      s.off(`incoming_request_${mobile}`, incomingHandler)
+      s.off(`requested_accepted_${mobile}`, acceptedHandler)
+      s.off(`requested_rejected_${mobile}`, rejectedHandler)
+    }
+  }, [mobile])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -84,22 +93,22 @@ useEffect(() => {
   }
 
   const acceptRequest = () => {
-  const s = socketHelper.getSocket()
-  if (!s || !incoming) return
-  // Host accepts: from = host mobile, to = requester mobile
-  s.emit('accept_request', { from: mobile, to: incoming.from })
-  localStorage.setItem('paired_with', incoming.from)
-  setIncoming(null)
-  // host already on ChatRoom so no navigate needed (requester will navigate on receiving accept)
-}
+    const s = socketHelper.getSocket()
+    if (!s || !incoming) return
+    // Host accepts: from = host mobile, to = requester mobile
+    s.emit('accept_request', { from: mobile, to: incoming.from })
+    localStorage.setItem('paired_with', incoming.from)
+    setIncoming(null)
+    // host already on ChatRoom so no navigate needed (requester will navigate on receiving accept)
+  }
 
-const rejectRequest = () => {
-  const s = socketHelper.getSocket()
-  if (!s || !incoming) return
-  // Use the same 'reject_request' event as server expects
-  s.emit('reject_request', { from: mobile, to: incoming.from })
-  setIncoming(null)
-}
+  const rejectRequest = () => {
+    const s = socketHelper.getSocket()
+    if (!s || !incoming) return
+    // Use the same 'reject_request' event as server expects
+    s.emit('reject_request', { from: mobile, to: incoming.from })
+    setIncoming(null)
+  }
 
   return (
     <div className="flex flex-col h-screen bg-[#111]">

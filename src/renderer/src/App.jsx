@@ -1,12 +1,12 @@
 import React from 'react'
-import { createBrowserRouter, RouterProvider, useNavigate } from 'react-router-dom'
+import { createHashRouter, RouterProvider, useNavigate } from 'react-router-dom'
 import Pairing from './Pairing'
 import ChatRoom from './ChatRoom'
 import socket from './socket'
 import MobileNumber from './MobileNumber'
 
 const App = () => {
-  const router = createBrowserRouter([
+  const router = createHashRouter([
     {
       path: '/mobile',
       element: <MobileNumber />
