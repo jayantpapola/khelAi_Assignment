@@ -9,43 +9,60 @@ const ChatRoom = () => {
   const mobile = localStorage.getItem('mobile_number')
   const [messages, setMessages] = useState([])
   const [text, setText] = useState('')
+  const [incoming, setIncoming] = useState(null) // store incoming request details
   const messagesEndRef = useRef(null)
 
-  useEffect(() => {
-    if (!isPaired) {
-      navigate('/pairing')
-      return
+useEffect(() => {
+  let s = socketHelper.getSocket()
+
+  if (!s || s.disconnected) {
+    const lan = localStorage.getItem('lan_server')
+    if (lan) {
+      const host = JSON.parse(lan)
+      s = socketHelper.connectSocket({ host: `http://${host.ip}`, port: host.socketPort })
+    } else {
+      s = socketHelper.connectSocket({ host: 'http://localhost', port: 5000 })
     }
+  }
 
-    let s = socketHelper.getSocket()
+  s.on('connect', () => {
+    s.emit('register', { mobile })
+  })
 
-    // If there's no socket, try reconnecting using saved LAN server or internet fallback
-    if (!s || s.disconnected) {
-      const lan = localStorage.getItem('lan_server')
-      if (lan) {
-        const host = JSON.parse(lan)
-        s = socketHelper.connectSocket({ host: `http://${host.ip}`, port: host.socketPort })
-      } else {
-        // fallback to internet server (update URL as needed)
-        s = socketHelper.connectSocket({ host: 'http://localhost', port: 5000 })
-      }
+  const messageHandler = (msg) => {
+    setMessages((prev) => [...prev, { text: msg, fromMe: false }])
+  }
+
+  const incomingHandler = (data) => {
+    setIncoming(data)
+  }
+
+  // Listener for when requester gets accepted (useful if this client ever sends requests)
+  const acceptedHandler = (data) => {
+    // If this client was the requester, server will send requested_accepted_<thisMobile>
+    localStorage.setItem('paired_with', data.from)
+    // if already in chat room, just update UI, else navigate
+    if (!location.pathname.includes('/chatroom')) {
+      navigate('/chatroom')
     }
+  }
 
-    s.on('connect', () => {
-      // register mobile so host/server can map
-      s.emit('register', { mobile })
-    })
+  const rejectedHandler = (data) => {
+    alert('Request Declined!!')
+  }
 
-    const messageHandler = (msg) => {
-      setMessages((prev) => [...prev, { text: msg, fromMe: false }])
-    }
+  s.on(`message_${mobile}`, messageHandler)
+  s.on(`incoming_request_${mobile}`, incomingHandler)
+  s.on(`requested_accepted_${mobile}`, acceptedHandler)
+  s.on(`requested_rejected_${mobile}`, rejectedHandler)
 
-    s.on(`message_${mobile}`, messageHandler)
-
-    return () => {
-      s.off(`message_${mobile}`, messageHandler)
-    }
-  }, [])
+  return () => {
+    s.off(`message_${mobile}`, messageHandler)
+    s.off(`incoming_request_${mobile}`, incomingHandler)
+    s.off(`requested_accepted_${mobile}`, acceptedHandler)
+    s.off(`requested_rejected_${mobile}`, rejectedHandler)
+  }
+}, [mobile])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -60,16 +77,35 @@ const ChatRoom = () => {
     e?.preventDefault?.()
     if (text.trim()) {
       const active = socketHelper.getSocket()
-      active.emit('message', { to: isPaired, text, from: localStorage.getItem('mobile_number') })
+      active.emit('message', { to: isPaired, text, from: mobile })
       setMessages((prev) => [...prev, { text, fromMe: true }])
       setText('')
     }
   }
 
+  const acceptRequest = () => {
+  const s = socketHelper.getSocket()
+  if (!s || !incoming) return
+  // Host accepts: from = host mobile, to = requester mobile
+  s.emit('accept_request', { from: mobile, to: incoming.from })
+  localStorage.setItem('paired_with', incoming.from)
+  setIncoming(null)
+  // host already on ChatRoom so no navigate needed (requester will navigate on receiving accept)
+}
+
+const rejectRequest = () => {
+  const s = socketHelper.getSocket()
+  if (!s || !incoming) return
+  // Use the same 'reject_request' event as server expects
+  s.emit('reject_request', { from: mobile, to: incoming.from })
+  setIncoming(null)
+}
+
   return (
     <div className="flex flex-col h-screen bg-[#111]">
+      {/* Header */}
       <div className="bg-blue-500 text-white px-4 py-3 flex justify-between items-center shadow">
-        <div className="font-semibold">Paired with: {isPaired}</div>
+        <div className="font-semibold">{isPaired ? `Paired with: ${isPaired}` : 'Not paired'}</div>
         <button
           onClick={backButton}
           className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
@@ -78,11 +114,39 @@ const ChatRoom = () => {
         </button>
       </div>
 
+      {/* Incoming request popup */}
+      {incoming && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg text-black">
+            <p className="mb-4">Incoming request from {incoming.from}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={acceptRequest}
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+              >
+                Accept
+              </button>
+              <button
+                onClick={rejectRequest}
+                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {messages.map((msg, i) => (
           <div key={i} className={`flex mb-2 ${msg.fromMe ? 'justify-end' : 'justify-start'}`}>
             <div
-              className={`max-w-xs px-4 py-2 rounded-lg shadow ${msg.fromMe ? 'bg-blue-500 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}
+              className={`max-w-xs px-4 py-2 rounded-lg shadow ${
+                msg.fromMe
+                  ? 'bg-blue-500 text-white rounded-br-none'
+                  : 'bg-white text-gray-800 rounded-bl-none'
+              }`}
             >
               {msg.text}
             </div>
@@ -91,6 +155,7 @@ const ChatRoom = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input */}
       <form onSubmit={sendMessage} className="bg-[#222] p-3 flex items-center text-white">
         <input
           value={text}

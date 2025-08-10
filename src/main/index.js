@@ -57,9 +57,9 @@ function startHostServer({ port = 5000, udpDiscoveryPort = 41234 } = {}) {
     socket.on('connection_request', (data) => {
       // data: { from, to }
       console.log('host received connection_request', data)
+      io.emit(`incoming_request_${data.to}`, { from: data.from })
       const targetSocketId = mobileToSocket.get(data.to)
       if (targetSocketId) {
-        io.to(targetSocketId).emit(`incoming_request_${data.to}`, { from: data.from })
       } else {
         // If target not connected to host, notify sender about failure
         io.to(socket.id).emit(`requested_rejected_${data.from}`, {
@@ -70,25 +70,27 @@ function startHostServer({ port = 5000, udpDiscoveryPort = 41234 } = {}) {
 
     socket.on('accept_request', (data) => {
       // data: { from, to }
-      const targetSocketId = mobileToSocket.get(data.to)
-      if (targetSocketId) {
-        io.to(targetSocketId).emit(`requested_accepted_${data.to}`, { from: data.from })
+      const requesterSocketId = mobileToSocket.get(data.to) // requester
+      const hostSocketId = mobileToSocket.get(data.from) // host
+
+      io.emit(`requested_accepted_${data.to}`, { from: data.from })
+      io.emit(`requested_accepted_${data.from}`, { from: data.to })
+      if (requesterSocketId) {
+      }
+      if (hostSocketId) {
       }
     })
 
     socket.on('reject_request', (data) => {
-      const targetSocketId = mobileToSocket.get(data.to)
-      if (targetSocketId) {
-        io.to(targetSocketId).emit(`requested_rejected_${data.to}`, { from: data.from })
-      }
+      io.emit(`requested_rejected_${data.to}`, { from: data.from })
     })
 
     socket.on('message', (payload) => {
       // payload: { to, text, from }
       console.log('host message payload', payload)
       const targetSocketId = mobileToSocket.get(payload.to)
+      io.emit(`message_${payload.to}`, payload.text)
       if (targetSocketId) {
-        io.to(targetSocketId).emit(`message_${payload.to}`, payload.text)
       }
     })
 

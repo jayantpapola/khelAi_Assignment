@@ -55,6 +55,7 @@ export default function Pairing() {
       localStorage.setItem('paired_with', data.from)
       navigate('/')
     })
+
     s.on(`requested_rejected_${id}`, () => {
       setConnecting(false)
       alert('Request Declined!!')
@@ -114,9 +115,8 @@ export default function Pairing() {
       const s = socketHelper.connectSocket({ host: `http://${host.ip}`, port: host.socketPort })
       s.on('connect', () => {
         s.emit('register', { mobile: id })
-        // store the host for reconnects
         localStorage.setItem('lan_server', JSON.stringify(host))
-        // After connecting to host, send pairing request to the other user's mobile number using normal flow
+        registerSocketListeners(s) // <-- make sure listener is active
         s.emit('connection_request', { from: id, to: pairingCode })
       })
     } catch (e) {
