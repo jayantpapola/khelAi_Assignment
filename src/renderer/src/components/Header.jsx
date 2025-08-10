@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 
 const Header = () => {
   const mobileNumber = localStorage.getItem('mobile_number')
+
   useEffect(() => {
     const mobileNumber = localStorage.getItem('mobile_number')
     if (!mobileNumber) {
@@ -9,7 +10,7 @@ const Header = () => {
     }
   }, [])
   return (
-    <div className="p-2 px-4 bg-[#222] shadow-2xl text-white text-sm">
+    <div className="w-full p-2 px-4 bg-[#222] shadow-2xl text-white text-sm flex justify-between">
       <p>
         Id- <span className="font-bold text-lg">{mobileNumber}</span>
       </p>

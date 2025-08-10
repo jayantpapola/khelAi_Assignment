@@ -1,6 +1,28 @@
+// src/socket.js
 import { io } from 'socket.io-client'
 
-// Replace with your deployed server URL
-const socket = io('http://localhost:5000')
+let socket = null
 
-export default socket
+export function connectSocket({ host = 'http://localhost', port = 5000, opts = {} } = {}) {
+  if (socket && socket.connected) {
+    try {
+      socket.disconnect()
+    } catch (e) {
+      console.warn(e)
+    }
+    socket = null
+  }
+  const url = `${host}:${port}`
+  socket = io(url, { transports: ['websocket'], autoConnect: true, ...opts })
+  // add small reconnect logging
+  socket.on('connect', () => console.log('socket connected to', url, 'id', socket.id))
+  socket.on('disconnect', (reason) => console.log('socket disconnected', reason))
+  socket.on('connect_error', (err) => console.error('socket connect_error', err.message))
+  return socket
+}
+
+export function getSocket() {
+  return socket
+}
+
+export default { connectSocket, getSocket }
